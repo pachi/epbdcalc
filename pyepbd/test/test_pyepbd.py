@@ -27,8 +27,7 @@ import os, sys
 currpath = os.path.abspath(os.path.dirname(__file__))
 sys.path.append(os.path.join(currpath, '..'))
 
-from pyepbd import (FACTORESDEPASOOFICIALES,
-                    weighted_energy,
+from pyepbd import (weighted_energy,
                     readenergyfile,
                     readenergydata,
                     ep2string, readfactors)
@@ -58,7 +57,7 @@ def epfromdata(datalist, krdel, kexp, fp):
     return weighted_energy(data, krdel, fp, kexp)
 
 TESTFP = readfactors(os.path.join(currpath, '../examples/factores_paso_test.csv'))
-CTEFP = readfactors(os.path.join(currpath, '../examples/factores_paso_20140203.csv'))
+TESTFP2 = readfactors(os.path.join(currpath, '../examples/factores_paso_20140203.csv'))
 TESTKRDEL = 1.0
 TESTKEXP = 1.0
 
@@ -71,7 +70,7 @@ def test_ejemplo1base_fail():
     assert not check(EP, [53.0, 200.0])
 
 def test_ejemplo1base_normativo():
-    EP = epfromfile('../examples/ejemplo1base.csv', TESTKRDEL, TESTKEXP, CTEFP)
+    EP = epfromfile('../examples/ejemplo1base.csv', TESTKRDEL, TESTKEXP, TESTFP2)
     assert check(EP, [34.1, 208.20])
 
 def test_ejemplo1PV():
@@ -79,7 +78,7 @@ def test_ejemplo1PV():
     assert check(EP, [75.0, 100.0])
 
 def test_ejemplo1PV_normativo():
-    EP = epfromfile('../examples/ejemplo1PV.csv', TESTKRDEL, TESTKEXP, CTEFP)
+    EP = epfromfile('../examples/ejemplo1PV.csv', TESTKRDEL, TESTKEXP, TESTFP2)
     assert check(EP, [67.1, 104.1])
 
 def test_ejemplo1xPV():
@@ -87,7 +86,7 @@ def test_ejemplo1xPV():
     assert check(EP, [120.0, -80.0])
 
 def test_ejemplo1xPV_normativo():
-    EP = epfromfile('../examples/ejemplo1xPV.csv', TESTKRDEL, TESTKEXP, CTEFP)
+    EP = epfromfile('../examples/ejemplo1xPV.csv', TESTKRDEL, TESTKEXP, TESTFP2)
     assert check(EP, [120.0, -80.0])
 
 def test_ejemplo1xPVk0():
@@ -95,7 +94,7 @@ def test_ejemplo1xPVk0():
     assert check(EP, [100.0, 0.0])
 
 def test_ejemplo1xPVk0_normativo():
-    EP = epfromfile('../examples/ejemplo1xPV.csv', TESTKRDEL, 0.0, CTEFP)
+    EP = epfromfile('../examples/ejemplo1xPV.csv', TESTKRDEL, 0.0, TESTFP2)
     assert check(EP, [100.0, 0.0])
 
 def test_ejemplo2xPVgas():
@@ -103,7 +102,7 @@ def test_ejemplo2xPVgas():
     assert check(EP, [30.0, 169.0])
 
 def test_ejemplo2xPVgas_normativo():
-    EP = epfromfile('../examples/ejemplo2xPVgas.csv', TESTKRDEL, TESTKEXP, CTEFP)
+    EP = epfromfile('../examples/ejemplo2xPVgas.csv', TESTKRDEL, TESTKEXP, TESTFP2)
     assert check(EP, [30.9, 186.1])
 
 def test_ejemplo3PVBdC():
@@ -111,7 +110,7 @@ def test_ejemplo3PVBdC():
     assert check(EP, [180.0, 38.0])
 
 def test_ejemplo3PVBdC_normativo():
-    EP = epfromfile('../examples/ejemplo3PVBdC.csv', TESTKRDEL, TESTKEXP, CTEFP)
+    EP = epfromfile('../examples/ejemplo3PVBdC.csv', TESTKRDEL, TESTKEXP, TESTFP2)
     assert check(EP, [177.5, 39.6])
 
 def test_ejemplo4cgnfosil():
@@ -119,7 +118,7 @@ def test_ejemplo4cgnfosil():
     assert check(EP, [-14.0, 227.0])
 
 def test_ejemplo4cgnfosil_normativo():
-    EP = epfromfile('../examples/ejemplo4cgnfosil.csv', TESTKRDEL, TESTKEXP, CTEFP)
+    EP = epfromfile('../examples/ejemplo4cgnfosil.csv', TESTKRDEL, TESTKEXP, TESTFP2)
     assert check(EP, [-12.7, 251])
 
 def test_ejemplo5cgnbiogas():
@@ -127,7 +126,7 @@ def test_ejemplo5cgnbiogas():
     assert check(EP, [159.0, 69.0])
 
 def test_ejemplo5cgnbiogas_normativo():
-    EP = epfromfile('../examples/ejemplo5cgnbiogas.csv', TESTKRDEL, TESTKEXP, CTEFP)
+    EP = epfromfile('../examples/ejemplo5cgnbiogas.csv', TESTKRDEL, TESTKEXP, TESTFP2)
     assert check(EP, [148.9, 76.4])
 
 def test_ejemplo6K3():
@@ -135,7 +134,7 @@ def test_ejemplo6K3():
     assert check(EP, [1385.5, -662])
 
 def test_ejemplo6K3_normativo():
-    EP = epfromfile('../examples/ejemplo6K3.csv', TESTKRDEL, TESTKEXP, CTEFP)
+    EP = epfromfile('../examples/ejemplo6K3.csv', TESTKRDEL, TESTKEXP, TESTFP2)
     assert check(EP, [1385.5, -662])
 
 def test_fromdata():
@@ -150,5 +149,5 @@ def test_fromdata():
             {'values': [21.48, 17.18, 10.74, 9.66, 5.37, 6.44, 8.59, 7.52, 5.37, 8.59, 12.89, 17.18],
              'carrier': 'MEDIOAMBIENTE', 'ctype': 'PRODUCCION', 'originoruse': 'INSITU'}
             ]
-    EP = epfromdata(datalist, TESTKRDEL, TESTKEXP, CTEFP)
+    EP = epfromdata(datalist, TESTKRDEL, TESTKEXP, TESTFP2)
     assert check(EP, [177.5, 39.6])
