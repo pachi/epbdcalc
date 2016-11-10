@@ -53,22 +53,16 @@ def readenergydata(datalist):
     numsteps = max(len(data['values']) for data in datalist)
 
     energydata = {}
-    for ii, data in enumerate(datalist):
+    for data in datalist:
         carrier = data['carrier']
         ctype = data['ctype']
         originoruse = data['originoruse']
-        values = [float(value) for value in data['values']]
-
-        if len(values) != numsteps:
-            raise ValueError("All input must have the same number of timesteps. "
-                             "Problem found in line %i:\n\t%s" % (ii+1, data))
-
+        values = data['values']
         if carrier not in energydata:
             energydata[carrier] = {'CONSUMO': {'EPB': [0.0] * numsteps,
                                                   'NEPB': [0.0] * numsteps},
                                    'PRODUCCION': {'INSITU': [0.0] * numsteps,
                                                   'COGENERACION': [0.0] * numsteps}}
-
         energydata[carrier][ctype][originoruse] = vecvecsum(energydata[carrier][ctype][originoruse], values)
     return energydata
 
@@ -86,23 +80,35 @@ def readenergyfile(filename):
       - the energy end use (EPB or NEPB) for delivered energy
     * values
     """
+    #TODO: We are throwing away the metadata in the file
     with io.open(filename, 'r') as datafile:
-        datalines = []
+        components, meta = [], []
         for ii, line in enumerate(datafile):
-            if line.startswith('vector') or line.startswith('#'):
+            line = line.strip()
+            if (line == '') or line.startswith('vector'):
                 continue
-            fields = line.strip().split(',')
-            carrier, ctype, originoruse = fields[0:3]
-            values = fields[3:]
+            elif line.startswith('#'):
+                meta.append(line)
+            else:
+                fields = line.split('#', 1)
+                data = [x.strip() for x in fields[0].split(',')]
+                comment = fields[1] if len(fields) > 1 else ''
+                carrier, ctype, originoruse = data[0:3]
+                values = [float(v.strip()) for v in data[3:]]
 
-            if ctype not in ('PRODUCCION', 'CONSUMO'):
-                raise ValueError("Carrier type is not 'CONSUMO' or 'PRODUCCION' in line %i\n\t%s" % (ii+2, line))
-            if originoruse not in ('EPB', 'NEPB', 'INSITU', 'COGENERACION'):
-                raise ValueError(("Origin or end use is not 'EPB', 'NEPB', 'INSITU' or 'COGENERACION'"
-                                  " in line %i\n\t%s" % (ii+2, line)))
+                if ctype not in ('PRODUCCION', 'CONSUMO'):
+                    raise ValueError("Carrier type is not 'CONSUMO' or 'PRODUCCION' in line %i\n\t%s" % (ii+2, line))
+                if originoruse not in ('EPB', 'NEPB', 'INSITU', 'COGENERACION'):
+                    raise ValueError(("Origin or end use is not 'EPB', 'NEPB', 'INSITU' or 'COGENERACION'"
+                                      " in line %i\n\t%s" % (ii+2, line)))
 
-            datalines.append({"carrier": carrier, "ctype": ctype, "originoruse": originoruse, "values": values})
-    return readenergydata(datalines)
+                components.append({ "carrier": carrier, "ctype": ctype,
+                                    "originoruse": originoruse,
+                                    "values": values, "comment": comment })
+        numsteps = [len(data['values']) for data in components]
+        if max(numsteps) != min(numsteps):
+            raise ValueError("All input must have the same number of timesteps.")
+    return readenergydata(components)
 
 def readfactors(filename):
     """Read energy weighting factors data from file"""
