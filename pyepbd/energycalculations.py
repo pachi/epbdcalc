@@ -277,8 +277,41 @@ def weighted_energy(data, k_rdel, fp, k_exp):
 
     In the context of the CTE regulation weighted energy corresponds to
     primary energy.
+
+    data is a list of energy vectors:
+
+    [ {'carrier': carrier1, 'ctype': ctype1, 'originoruse': originoruse1, 'values': values1},
+      {'carrier': carrier2, 'ctype': ctype2, 'originoruse': originoruse2, 'values': values2},
+      ...
+    ]
+
+    * carrier is an energy carrier
+    * ctype is either 'PRODUCCION' or 'CONSUMO' por produced or used energy
+    * originoruse defines:
+      - the energy origin for produced energy (INSITU or COGENERACION)
+      - the energy end use (EPB or NEPB) for delivered energy
+    * values
+    * comment is a comment string for the vector
+
+    k_rdel is the redelivery energy factor [0, 1]
+    k_exp is the exported energy factor [0, 1]
+    fp is a dictionary of weighting factors
     """
-    components = energycomponents(data, k_rdel)
+    datadict = {}
+    numsteps = max(len(datum['values']) for datum in data)
+    for datum in data:
+        carrier = datum['carrier']
+        ctype = datum['ctype']
+        originoruse = datum['originoruse']
+        values = datum['values']
+        if carrier not in datadict:
+            datadict[carrier] = {'CONSUMO': {'EPB': [0.0] * numsteps,
+                                             'NEPB': [0.0] * numsteps},
+                                 'PRODUCCION': {'INSITU': [0.0] * numsteps,
+                                                'COGENERACION': [0.0] * numsteps}}
+        datadict[carrier][ctype][originoruse] = vecvecsum(datadict[carrier][ctype][originoruse], values)
+        
+    components = energycomponents(datadict, k_rdel)
     EPA = {'ren': 0.0, 'nren': 0.0}
     EPB = {'ren': 0.0, 'nren': 0.0}
 

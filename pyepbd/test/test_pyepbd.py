@@ -29,7 +29,6 @@ sys.path.append(os.path.join(currpath, '..'))
 
 from pyepbd import (weighted_energy,
                     readenergyfile,
-                    readenergydata,
                     ep2string, readfactors)
 
 def check(EPB, res):
@@ -48,12 +47,11 @@ def check(EPB, res):
 def epfromfile(filename, krdel, kexp, fp):
     """Compute primary energy (weighted energy) from data in filename"""
     datafile = os.path.join(currpath, filename)
-    data = readenergyfile(datafile)
+    meta, data = readenergyfile(datafile)
     return weighted_energy(data, krdel, fp, kexp)
 
-def epfromdata(datalist, krdel, kexp, fp):
+def epfromdata(data, krdel, kexp, fp):
     """Compute primary energy (weighted energy) from datalist"""
-    data = readenergydata(datalist)
     return weighted_energy(data, krdel, fp, kexp)
 
 TESTFP = readfactors(os.path.join(currpath, '../examples/factores_paso_test.csv'))

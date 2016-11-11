@@ -29,49 +29,8 @@
 import io
 from .utils import *
 
-def readenergydata(datalist):
-    """Read input data from list and return data structure
-
-    Returns dict of array of values indexed by carrier, ctype and originoruse
-
-    data[carrier][ctype][originoruse] -> values as np.array with length=numsteps
-
-    * carrier is an energy carrier
-    * ctype is either 'PRODUCCION' or 'CONSUMO' por produced or used energy
-    * originoruse defines:
-      - the energy origin for produced energy (INSITU or COGENERACION)
-      - the energy end use (EPB or NEPB) for delivered energy
-    * values
-
-    List of energy components has the following structure:
-
-    [ {'carrier': carrier1, 'ctype': ctype1, 'originoruse': originoruse1, 'values': values1},
-      {'carrier': carrier2, 'ctype': ctype2, 'originoruse': originoruse2, 'values': values2},
-      ...
-    ]
-    """
-    numsteps = max(len(data['values']) for data in datalist)
-
-    energydata = {}
-    for data in datalist:
-        carrier = data['carrier']
-        ctype = data['ctype']
-        originoruse = data['originoruse']
-        values = data['values']
-        if carrier not in energydata:
-            energydata[carrier] = {'CONSUMO': {'EPB': [0.0] * numsteps,
-                                                  'NEPB': [0.0] * numsteps},
-                                   'PRODUCCION': {'INSITU': [0.0] * numsteps,
-                                                  'COGENERACION': [0.0] * numsteps}}
-        energydata[carrier][ctype][originoruse] = vecvecsum(energydata[carrier][ctype][originoruse], values)
-    return energydata
-
 def readenergyfile(filename):
-    """Read input data from filename and return data structure
-
-    Returns dict of array of values indexed by carrier, ctype and originoruse
-
-    data[carrier][ctype][originoruse] -> values as np.array with length=numsteps
+    """Read input data from filename and return energy vectors and metadata
 
     * carrier is an energy carrier
     * ctype is either 'PRODUCCION' or 'CONSUMO' por produced or used energy
@@ -80,7 +39,6 @@ def readenergyfile(filename):
       - the energy end use (EPB or NEPB) for delivered energy
     * values
     """
-    #TODO: We are throwing away the metadata in the file
     with io.open(filename, 'r') as datafile:
         components, meta = [], []
         for ii, line in enumerate(datafile):
@@ -105,10 +63,10 @@ def readenergyfile(filename):
                 components.append({ "carrier": carrier, "ctype": ctype,
                                     "originoruse": originoruse,
                                     "values": values, "comment": comment })
-        numsteps = [len(data['values']) for data in components]
+        numsteps = [len(c['values']) for c in components]
         if max(numsteps) != min(numsteps):
             raise ValueError("All input must have the same number of timesteps.")
-    return readenergydata(components)
+    return (meta, components)
 
 def readfactors(filename):
     """Read energy weighting factors data from file"""
