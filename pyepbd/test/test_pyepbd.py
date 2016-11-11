@@ -28,7 +28,7 @@ currpath = os.path.abspath(os.path.dirname(__file__))
 sys.path.append(os.path.join(currpath, '..'))
 
 from pyepbd import (weighted_energy,
-                    readenergyfile,
+                    readenergyfile, saveenergyfile,
                     ep2string, readfactors)
 
 def check(EPB, res):
@@ -134,6 +134,17 @@ def test_ejemplo6K3():
 def test_ejemplo6K3_normativo():
     EP = epfromfile('../examples/ejemplo6K3.csv', TESTKRDEL, TESTKEXP, TESTFP2)
     assert check(EP, [1385.5, -662])
+
+def test_savefile():
+    datafile = os.path.join(currpath, '../examples/ejemplo6K3.csv')
+    outfile = os.path.join(currpath, '../examples/ejemplo6K3modif.csv')
+    meta, data = readenergyfile(datafile)
+    EP = weighted_energy(data, TESTKRDEL, TESTFP, TESTKEXP)
+    meta.append(u"#CTE_EP_nren: %.2f" % EP['EP']['nren'])
+    meta.append(u"#CTE_EP_ren: %.2f" % EP['EP']['ren'])
+    meta.append(u"#CTE_EPA_nren: %.2f" % EP['EPpasoA']['nren'])
+    meta.append(u"#CTE_EPA_ren: %.2f" % EP['EPpasoA']['ren'])
+    saveenergyfile(outfile, meta, data)
 
 def test_fromdata():
     # data from ejemplo3PVBdC_normativo

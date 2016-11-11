@@ -68,6 +68,19 @@ def readenergyfile(filename):
             raise ValueError("All input must have the same number of timesteps.")
     return (meta, components)
 
+def saveenergyfile(path, meta, data):
+    """Save energy file with filename using data and metadata"""
+    with io.open(path, 'w+') as ff:
+        ff.write(u"\n".join(meta))
+        ff.write(u"\nvector,tipo,src_dst\n")
+        for c in data:
+            carrier = c['carrier']
+            ctype = c['ctype']
+            originoruse = c['originoruse']
+            values = u", ".join(u"%.2f" % v for v in c['values'])
+            comment = u" # %s" % c['comment'] if c['comment'] else u""
+            ff.write(u"%s, %s, %s, %s%s\n" % (carrier, ctype, originoruse, values, comment))
+
 def readfactors(filename):
     """Read energy weighting factors data from file"""
     # TODO: check valid sources
