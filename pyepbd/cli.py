@@ -90,7 +90,7 @@ def main():
     cadenasalida.append(u'Superficie de referencia: %.2f' % args.area)
 
     meta, data = readenergyfile(args.vecfile.name)
-    EP = weighted_energy(data, k_rdel, fP, k_exp)
+    EP = weighted_energy(data, fP, k_rdel, k_exp)
 
     cadenasalida.append(ep2string(EP, args.area))
     cadenasalida = u'\n'.join(cadenasalida)

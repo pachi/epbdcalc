@@ -265,7 +265,7 @@ def gridsavings_stepB(components, fp, k_exp):
     gridsavings = {'ren': k_exp * (to_nEPB['ren'] + to_grid['ren']), 'nren': k_exp * (to_nEPB['nren'] + to_grid['nren'])}
     return gridsavings
 
-def weighted_energy(data, k_rdel, fp, k_exp):
+def weighted_energy(data, fp, k_rdel, k_exp):
     """Total weighted energy (step A + B) = used energy (step A) - saved energy (step B)
 
     The energy saved to the grid due to exportation (step B) is substracted
@@ -293,9 +293,9 @@ def weighted_energy(data, k_rdel, fp, k_exp):
     * values
     * comment is a comment string for the vector
 
+    fp is a dictionary of weighting factors
     k_rdel is the redelivery energy factor [0, 1]
     k_exp is the exported energy factor [0, 1]
-    fp is a dictionary of weighting factors
     """
     datadict = {}
     numsteps = max(len(datum['values']) for datum in data)
