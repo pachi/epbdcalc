@@ -140,10 +140,10 @@ def test_savefile():
     outfile = os.path.join(currpath, '../examples/ejemplo6K3modif.csv')
     meta, data = readenergyfile(datafile)
     EP = weighted_energy(data, TESTKRDEL, TESTFP, TESTKEXP)
-    meta.append(u"#CTE_EP_nren: %.2f" % EP['EP']['nren'])
-    meta.append(u"#CTE_EP_ren: %.2f" % EP['EP']['ren'])
-    meta.append(u"#CTE_EPA_nren: %.2f" % EP['EPpasoA']['nren'])
-    meta.append(u"#CTE_EPA_ren: %.2f" % EP['EPpasoA']['ren'])
+    meta[u"EP_nren"] = EP['EP']['nren']
+    meta[u"EP_ren"] = EP['EP']['ren']
+    meta[u"EPA_nren"] = EP['EPpasoA']['nren']
+    meta[u"EPA_ren"] = EP['EPpasoA']['ren']
     saveenergyfile(outfile, meta, data)
 
 def test_fromdata():

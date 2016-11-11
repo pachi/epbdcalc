@@ -27,7 +27,9 @@
 # TODO: handle exceptions in CLI
 
 import io
+import re
 from .utils import *
+from collections import OrderedDict
 
 def readenergyfile(filename):
     """Read input data from filename and return energy vectors and metadata
@@ -39,6 +41,22 @@ def readenergyfile(filename):
       - the energy end use (EPB or NEPB) for delivered energy
     * values
     """
+    def parsemeta(metalines):
+        """Parse metadata lines to get metadata object (ordered dict)
+
+        Allow only numbers, lists of numbers and strings
+        """
+        def parseline(line):
+            res = [val.strip() for val in line[5:].split(u':', 1)]
+            key, value = (res[0], res[1]) if len(res) == 2 else (res[0], u'')
+            if re.match(r'^-?\d*[\.|,]?\d+$', value):
+                value = float(value)
+            elif re.match(r'^\[(.*)\]', value):
+                value = [val.strip() for val in value[1:-1].split(u',')]
+                value = [float(val) if re.match(r'^-?\d*[\.|,]?\d+$', val) else val for val in value]
+            return key, value
+        return OrderedDict(parseline(line) for line in metalines if line.startswith(u'#CTE_'))
+
     with io.open(filename, 'r') as datafile:
         components, meta = [], []
         for ii, line in enumerate(datafile):
@@ -66,12 +84,16 @@ def readenergyfile(filename):
         numsteps = [len(c['values']) for c in components]
         if max(numsteps) != min(numsteps):
             raise ValueError("All input must have the same number of timesteps.")
-    return (meta, components)
+    return (parsemeta(meta), components)
 
 def saveenergyfile(path, meta, data):
     """Save energy file with filename using data and metadata"""
+    def serializemeta(meta):
+        """Convert metadata object to list of comment strings"""
+        return [u"#CTE_%s: %s" % (key, meta[key]) for key in meta]
+
     with io.open(path, 'w+') as ff:
-        ff.write(u"\n".join(meta))
+        ff.write(u"\n".join(serializemeta(meta)))
         ff.write(u"\nvector,tipo,src_dst\n")
         for c in data:
             carrier = c['carrier']
