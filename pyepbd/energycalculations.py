@@ -170,10 +170,23 @@ def components_an_forcarrier(components_t):
 
 def energycomponents(energydata, k_rdel):
     "Calculate timestep and annual energy composition by carrier from input data"
+    datadict = {}
+    numsteps = max(len(datum['values']) for datum in energydata)
+    for datum in energydata:
+        carrier = datum['carrier']
+        ctype = datum['ctype']
+        originoruse = datum['originoruse']
+        values = datum['values']
+        if carrier not in datadict:
+            datadict[carrier] = {'CONSUMO': {'EPB': [0.0] * numsteps,
+                                             'NEPB': [0.0] * numsteps},
+                                 'PRODUCCION': {'INSITU': [0.0] * numsteps,
+                                                'COGENERACION': [0.0] * numsteps}}
+        datadict[carrier][ctype][originoruse] = vecvecsum(datadict[carrier][ctype][originoruse], values)
 
     components = {}
-    for carrier in energydata:
-        bal_t = components_t_forcarrier(energydata[carrier], k_rdel)
+    for carrier in datadict:
+        bal_t = components_t_forcarrier(datadict[carrier], k_rdel)
         bal_an = components_an_forcarrier(bal_t)
         components[carrier] = {'temporal': bal_t,
                                'anual': bal_an}
@@ -290,28 +303,14 @@ def weighted_energy(data, fp, k_rdel, k_exp):
     * originoruse defines:
       - the energy origin for produced energy (INSITU or COGENERACION)
       - the energy end use (EPB or NEPB) for delivered energy
-    * values
+    * values is a list of energy values, one for each timestep
     * comment is a comment string for the vector
 
     fp is a dictionary of weighting factors
     k_rdel is the redelivery energy factor [0, 1]
     k_exp is the exported energy factor [0, 1]
     """
-    datadict = {}
-    numsteps = max(len(datum['values']) for datum in data)
-    for datum in data:
-        carrier = datum['carrier']
-        ctype = datum['ctype']
-        originoruse = datum['originoruse']
-        values = datum['values']
-        if carrier not in datadict:
-            datadict[carrier] = {'CONSUMO': {'EPB': [0.0] * numsteps,
-                                             'NEPB': [0.0] * numsteps},
-                                 'PRODUCCION': {'INSITU': [0.0] * numsteps,
-                                                'COGENERACION': [0.0] * numsteps}}
-        datadict[carrier][ctype][originoruse] = vecvecsum(datadict[carrier][ctype][originoruse], values)
-        
-    components = energycomponents(datadict, k_rdel)
+    components = energycomponents(data, k_rdel)
     EPA = {'ren': 0.0, 'nren': 0.0}
     EPB = {'ren': 0.0, 'nren': 0.0}
 
