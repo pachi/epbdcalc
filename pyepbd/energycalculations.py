@@ -188,8 +188,8 @@ def energycomponents(energydata, k_rdel):
     for carrier in datadict:
         bal_t = components_t_forcarrier(datadict[carrier], k_rdel)
         bal_an = components_an_forcarrier(bal_t)
-        components[carrier] = {'temporal': bal_t,
-                               'anual': bal_an}
+        components[carrier] = {'timestep': bal_t,
+                               'annual': bal_an}
     return components
 
 ####################################################
@@ -316,7 +316,7 @@ def weighted_energy(data, fp, k_rdel, k_exp):
 
     for carrier in components:
         fp_cr = [fpi for fpi in fp if fpi['vector'] == carrier]
-        components_cr_an = components[carrier]['anual']
+        components_cr_an = components[carrier]['annual']
 
         delivered_wenergy_stepA = delivered_weighted_energy_stepA(components_cr_an, fp_cr)
         exported_wenergy_stepA = exported_weighted_energy_stepA(components_cr_an, fp_cr)
