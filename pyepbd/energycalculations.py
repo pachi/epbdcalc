@@ -65,7 +65,7 @@ from .utils import *
 # origin for produced energy must be either 'INSITU' or 'COGENERACION'
 VALIDORIGINS = ['INSITU', 'COGENERACION']
 
-def components_t_forcarrier(carrierdata, k_rdel):
+def balance_t_forcarrier(carrierdata, k_rdel):
     """Calculate timestep energy balance for carrier data
 
     carrierdata: { 'CONSUMO': { 'EPB': [vi1, ..., vin],
@@ -77,21 +77,21 @@ def components_t_forcarrier(carrierdata, k_rdel):
     k_rdel: redelivery factor [0, 1]
 
     This follows the EN15603 procedure for calculation of delivered and
-    exported energy components.
+    exported energy balance.
 
     Returns:
 
-    components = { 'grid':
-                       { 'input': value },
-                   'INSITU':
-                       { 'input': [ va1, ..., van ],
-                         'to_nEPB': [ vb1, ..., vbn ],
-                         'to_grid': [ vc1, ..., vcn ] },
-                   'COGENERACION':
-                       { 'input': [ va1, ..., van ],
-                         'to_nEPB': [ vb1, ..., vbn ],
-                         'to_grid': [ vc1, ..., vcn ] },
-                 }
+    balance = { 'grid':
+                    { 'input': value },
+                'INSITU':
+                    { 'input': [ va1, ..., van ],
+                      'to_nEPB': [ vb1, ..., vbn ],
+                      'to_grid': [ vc1, ..., vcn ] },
+                'COGENERACION':
+                    { 'input': [ va1, ..., van ],
+                      'to_nEPB': [ vb1, ..., vbn ],
+                      'to_grid': [ vc1, ..., vcn ] },
+              }
     """
     # Energy used by technical systems for EPB services, for each time step
     E_EPus_t = carrierdata['CONSUMO']['EPB']
@@ -170,14 +170,14 @@ def components_t_forcarrier(carrierdata, k_rdel):
     # Corrected temporary exported energy (formula 39)
     # E_exp_tmp_t_corr = [E_exp_tmp_ti * (1 - k_rdel) for E_exp_tmp_ti in E_exp_tmp_t] # not used
 
-    components_t = {'grid': {'input': sum(E_del_t_corr)}} # Scalar
+    balance_t = {'grid': {'input': sum(E_del_t_corr)}} # Scalar
 
-    components_t.update({origin: {'input': E_pr_t_byorigin[origin],
+    balance_t.update({origin: {'input': E_pr_t_byorigin[origin],
                                   'to_nEPB': E_exp_used_nEPus_t_byorigin[origin],
                                   'to_grid': E_exp_grid_t_byorigin[origin]} for origin in VALIDORIGINS})
-    return components_t
+    return balance_t
 
-def components_an_forcarrier(components_t):
+def balance_an_forcarrier(balance_t):
     """Calculate annual energy balance for carrier from timestep balance
 
     Returns:
@@ -187,23 +187,23 @@ def components_an_forcarrier(components_t):
           'COGENERACION': value3
         }
     """
-    components_an = {}
-    for origin in components_t: # This is grid + VALIDORIGINS
-        components_an[origin] = {}
-        components_t_byorigin = components_t[origin]
-        for use in components_t_byorigin:
+    balance_an = {}
+    for origin in balance_t: # This is grid + VALIDORIGINS
+        balance_an[origin] = {}
+        balance_t_byorigin = balance_t[origin]
+        for use in balance_t_byorigin:
             if origin == 'grid' and use == 'input': # we have a scalar
-                sumforuse = components_t_byorigin[use]
+                sumforuse = balance_t_byorigin[use]
             else: # we have a list
-                sumforuse = sum(components_t_byorigin[use])
+                sumforuse = sum(balance_t_byorigin[use])
             if abs(sumforuse) > 0.01: # exclude smallish values
-                components_an[origin][use] = sumforuse
-    return components_an
+                balance_an[origin][use] = sumforuse
+    return balance_an
 
 def computebalance(carrierlist, k_rdel):
-    """Calculate timestep and annual energy composition by carrier
+    """Calculate timestep and annual energy balance by carrier
 
-    carrierlist: list of energy components
+    carrierlist: list of energy carrier data
 
         [ {'carrier': carrier1, 'ctype': ctype1, 'originoruse': originoruse1, 'values': values1},
           {'carrier': carrier2, 'ctype': ctype2, 'originoruse': originoruse2, 'values': values2},
@@ -223,8 +223,8 @@ def computebalance(carrierlist, k_rdel):
 
 
     Returns:
-        components[carrier] = { 'timestep': [vt1, ..., vtn]
-                                'annual': vannual }
+        balance[carrier] = { 'timestep': [vt1, ..., vtn]
+                             'annual': vannual }
         where timestep and annual are the timestep and annual
         balanced values for carrier.
     """
@@ -245,17 +245,17 @@ def computebalance(carrierlist, k_rdel):
         datadict[carrier][ctype][originoruse] = vecvecsum(datadict[carrier][ctype][originoruse], values)
 
     # Compute timestep and annual balance
-    components = {}
+    balance = {}
     for carrier in datadict:
-        bal_t = components_t_forcarrier(datadict[carrier], k_rdel)
-        bal_an = components_an_forcarrier(bal_t)
-        components[carrier] = {'timestep': bal_t,
-                               'annual': bal_an}
-    return components
+        bal_t = balance_t_forcarrier(datadict[carrier], k_rdel)
+        bal_an = balance_an_forcarrier(bal_t)
+        balance[carrier] = {'timestep': bal_t,
+                            'annual': bal_an}
+    return balance
 
-####################################################
+############### Step A and B computations ####################
 
-def delivered_weighted_energy_stepA(components, fp):
+def delivered_weighted_energy_stepA(cr_balance_an, fp):
     """Total delivered (or produced) weighted energy entering the assessment boundary in step A
 
     Energy is weighted depending on its origin (by source or grid).
@@ -266,15 +266,15 @@ def delivered_weighted_energy_stepA(components, fp):
 
     delivered_wenergy_stepA = {'ren': 0.0, 'nren': 0.0}
     fpA = [fpi for fpi in fp if fpi['uso']=='input' and fpi['step']=='A']
-    for source in components:
-        origins = components[source]
+    for source in cr_balance_an:
+        origins = cr_balance_an[source]
         if 'input' in origins:
             factor_paso_A = [fpi for fpi in fpA if fpi['fuente']==source][0]
             delivered_wenergy_stepA = {'ren': delivered_wenergy_stepA['ren'] + factor_paso_A['ren'] * origins['input'],
                                        'nren': delivered_wenergy_stepA['nren'] + factor_paso_A['nren'] * origins['input'] }
     return delivered_wenergy_stepA
 
-def exported_weighted_energy_stepA(components, fpA):
+def exported_weighted_energy_stepA(cr_balance_an, fpA):
     """Total exported weighted energy going outside the assessment boundary in step A
 
     Energy is weighted depending on its destination (non-EPB uses or grid).
@@ -287,8 +287,8 @@ def exported_weighted_energy_stepA(components, fpA):
     to_grid = {'ren': 0.0, 'nren': 0.0}
     fpAnEPB = [fpi for fpi in fpA if fpi['uso']=='to_nEPB']
     fpAgrid = [fpi for fpi in fpA if fpi['uso']=='to_grid']
-    for source in components:
-        destinations = components[source]
+    for source in cr_balance_an:
+        destinations = cr_balance_an[source]
         if 'to_nEPB' in destinations:
             fp_tmp = [fpi for fpi in fpAnEPB if fpi['fuente']==source][0] # TODO: check whether there's data
             to_nEPB = { 'ren': to_nEPB['ren'] + fp_tmp['ren'] * destinations['to_nEPB'],
@@ -303,8 +303,8 @@ def exported_weighted_energy_stepA(components, fpA):
                               'nren': to_nEPB['nren'] + to_grid['nren'] }
     return exported_energy_stepA
 
-def gridsavings_stepB(components, fp, k_exp):
-    """Avoided weighted energy resources in the grid due to exported electricity
+def gridsavings_stepB(cr_balance_an, fp, k_exp):
+    """Weighted energy resources avoided by the grid due to exported electricity
 
     The computation is done for a single energy carrier, considering the
     exported energy used for non-EPB uses (to_nEPB) and the energy exported
@@ -323,8 +323,8 @@ def gridsavings_stepB(components, fp, k_exp):
     fpBnEPB = [fpi for fpi in fpB if fpi['uso']=='to_nEPB']
     fpBgrid = [fpi for fpi in fpB if fpi['uso']=='to_grid']
 
-    for source in components:
-        destinations = components[source]
+    for source in cr_balance_an:
+        destinations = cr_balance_an[source]
         if 'to_nEPB' in destinations:
             fpA_tmp = [fpi for fpi in fpAnEPB if fpi['fuente']==source][0] # TODO: check whether there's data
             fpB_tmp = [fpi for fpi in fpBnEPB if fpi['fuente']==source][0] # TODO: check whether there's data
