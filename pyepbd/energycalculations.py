@@ -21,7 +21,10 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-
+#
+# Author(s): Rafael Villar Burke <pachi@ietcc.csic.es>,
+#            Daniel Jiménez González <dani@ietcc.csic.es>
+#
 """ Calcula la eficiencia energética como balance entre la energía usada y la ahorrada a la red.
 
 El proceso de calculo de la eficiencia energética se calcula en dos pasos:
@@ -62,21 +65,42 @@ from .utils import *
 # origin for produced energy must be either 'INSITU' or 'COGENERACION'
 VALIDORIGINS = ['INSITU', 'COGENERACION']
 
-def components_t_forcarrier(vdata, k_rdel):
-    """Calculate energy components for each time step from energy carrier data
+def components_t_forcarrier(carrierdata, k_rdel):
+    """Calculate timestep energy balance for carrier data
+
+    carrierdata: { 'CONSUMO': { 'EPB': [vi1, ..., vin],
+                                'NEPB': [vj1, ..., vjn] },
+                   'PRODUCCION': { 'INSITU': [vk1, ..., vkn]},
+                                   'COGENERACION' : [vl1, ..., vln] }
+                 } // n: number of timesteps
+
+    k_rdel: redelivery factor [0, 1]
 
     This follows the EN15603 procedure for calculation of delivered and
     exported energy components.
-    """
 
+    Returns:
+
+    components = { 'grid':
+                       { 'input': value },
+                   'INSITU':
+                       { 'input': [ va1, ..., van ],
+                         'to_nEPB': [ vb1, ..., vbn ],
+                         'to_grid': [ vc1, ..., vcn ] },
+                   'COGENERACION':
+                       { 'input': [ va1, ..., van ],
+                         'to_nEPB': [ vb1, ..., vbn ],
+                         'to_grid': [ vc1, ..., vcn ] },
+                 }
+    """
     # Energy used by technical systems for EPB services, for each time step
-    E_EPus_t = vdata['CONSUMO']['EPB']
+    E_EPus_t = carrierdata['CONSUMO']['EPB']
     # Energy used by technical systems for non-EPB services, for each time step
-    E_nEPus_t = vdata['CONSUMO']['NEPB']
+    E_nEPus_t = carrierdata['CONSUMO']['NEPB']
     numsteps = len(E_EPus_t)
 
     # (Electricity) produced on-site and inside the assessment boundary, by origin
-    E_pr_t_byorigin = vdata['PRODUCCION']
+    E_pr_t_byorigin = carrierdata['PRODUCCION']
     # (Electric) energy produced on-site and inside the assessment boundary, for each time step (formula 23)
     E_pr_t = veclistsum([E_pr_t_byorigin[origin] for origin in VALIDORIGINS])
 
@@ -154,25 +178,61 @@ def components_t_forcarrier(vdata, k_rdel):
     return components_t
 
 def components_an_forcarrier(components_t):
-    """Calculate annual energy composition by carrier from time step components"""
+    """Calculate annual energy balance for carrier from timestep balance
+
+    Returns:
+
+        { 'grid': value1,
+          'INSITU': value2,
+          'COGENERACION': value3
+        }
+    """
     components_an = {}
     for origin in components_t: # This is grid + VALIDORIGINS
         components_an[origin] = {}
         components_t_byorigin = components_t[origin]
         for use in components_t_byorigin:
-            try: # we get a list
-                sumforuse = sum(components_t_byorigin[use])
-            except TypeError: # if origin == 'grid' and use == 'input' we get an scalar
+            if origin == 'grid' and use == 'input': # we have a scalar
                 sumforuse = components_t_byorigin[use]
-            if abs(sumforuse) > 0.1:
+            else: # we have a list
+                sumforuse = sum(components_t_byorigin[use])
+            if abs(sumforuse) > 0.01: # exclude smallish values
                 components_an[origin][use] = sumforuse
     return components_an
 
-def energycomponents(energydata, k_rdel):
-    "Calculate timestep and annual energy composition by carrier from input data"
+def energycomponents(carrierlist, k_rdel):
+    """Calculate timestep and annual energy composition by carrier
+
+    carrierlist: list of energy components
+
+        [ {'carrier': carrier1, 'ctype': ctype1, 'originoruse': originoruse1, 'values': values1},
+          {'carrier': carrier2, 'ctype': ctype2, 'originoruse': originoruse2, 'values': values2},
+          ... ]
+
+        where:
+
+            * carrier is an energy carrier
+            * ctype is either 'PRODUCCION' or 'CONSUMO' por produced or used energy
+            * originoruse defines:
+              - the energy origin for produced energy (INSITU or COGENERACION)
+              - the energy end use (EPB or NEPB) for delivered energy
+            * values is a list of energy values, one for each timestep
+            * comment is a comment string for the vector
+
+    k_rdel: redelivery factor [0, 1]
+
+
+    Returns:
+        components[carrier] = { 'timestep': [vt1, ..., vtn]
+                                'annual': vannual }
+        where timestep and annual are the timestep and annual
+        balanced values for carrier.
+    """
+    # Add all values of vectors with the same carrier ctype and originoruse
+    # datadict[carrier][ctype][originoruse] -> values as np.array with length=numsteps
     datadict = {}
-    numsteps = max(len(datum['values']) for datum in energydata)
-    for datum in energydata:
+    numsteps = max(len(datum['values']) for datum in carrierlist)
+    for datum in carrierlist:
         carrier = datum['carrier']
         ctype = datum['ctype']
         originoruse = datum['originoruse']
@@ -184,6 +244,7 @@ def energycomponents(energydata, k_rdel):
                                                 'COGENERACION': [0.0] * numsteps}}
         datadict[carrier][ctype][originoruse] = vecvecsum(datadict[carrier][ctype][originoruse], values)
 
+    # Compute timestep and annual balance
     components = {}
     for carrier in datadict:
         bal_t = components_t_forcarrier(datadict[carrier], k_rdel)
@@ -292,19 +353,6 @@ def weighted_energy(data, fp, k_rdel, k_exp):
     primary energy.
 
     data is a list of energy vectors:
-
-    [ {'carrier': carrier1, 'ctype': ctype1, 'originoruse': originoruse1, 'values': values1},
-      {'carrier': carrier2, 'ctype': ctype2, 'originoruse': originoruse2, 'values': values2},
-      ...
-    ]
-
-    * carrier is an energy carrier
-    * ctype is either 'PRODUCCION' or 'CONSUMO' por produced or used energy
-    * originoruse defines:
-      - the energy origin for produced energy (INSITU or COGENERACION)
-      - the energy end use (EPB or NEPB) for delivered energy
-    * values is a list of energy values, one for each timestep
-    * comment is a comment string for the vector
 
     fp is a dictionary of weighting factors
     k_rdel is the redelivery energy factor [0, 1]
