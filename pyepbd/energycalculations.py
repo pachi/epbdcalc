@@ -175,8 +175,8 @@ def balance_t_forcarrier(carrierdata, k_rdel):
     balance_t = {'grid': {'input': sum(E_del_t_corr)}} # Scalar
 
     balance_t.update({origin: {'input': E_pr_t_byorigin[origin],
-                                  'to_nEPB': E_exp_used_nEPus_t_byorigin[origin],
-                                  'to_grid': E_exp_grid_t_byorigin[origin]} for origin in VALIDORIGINS})
+                               'to_nEPB': E_exp_used_nEPus_t_byorigin[origin],
+                               'to_grid': E_exp_grid_t_byorigin[origin]} for origin in VALIDORIGINS})
     return balance_t
 
 def balance_an_forcarrier(balance_t):
@@ -313,8 +313,22 @@ def compute_balance(carrierlist, k_rdel):
 
 
     Returns:
-        balance[carrier] = { 'timestep': [vt1, ..., vtn]
-                             'annual': vannual }
+
+        balance[carrier] = { 'timestep': { 'grid': { 'input': value },
+                                           'INSITU': { 'input': [ va1, ..., van ],
+                                                       'to_nEPB': [ vb1, ..., vbn ],
+                                                       'to_grid': [ vc1, ..., vcn ]
+                                                     },
+                                           'COGENERACION': { 'input': [ va1, ..., van ],
+                                                             'to_nEPB': [ vb1, ..., vbn ],
+                                                             'to_grid': [ vc1, ..., vcn ]
+                                                     },
+                                         }
+                             'annual': { 'grid': valuea1,
+                                         'INSITU': valuea2,
+                                         'COGENERACION': valuea3
+                                       }
+        }
         where timestep and annual are the timestep and annual
         balanced values for carrier.
     """
@@ -339,8 +353,7 @@ def compute_balance(carrierlist, k_rdel):
     for carrier in datadict:
         bal_t = balance_t_forcarrier(datadict[carrier], k_rdel)
         bal_an = balance_an_forcarrier(bal_t)
-        balance[carrier] = {'timestep': bal_t,
-                            'annual': bal_an}
+        balance[carrier] = {'timestep': bal_t, 'annual': bal_an}
     return balance
 
 def weighted_energy(balance, fp, k_exp):
