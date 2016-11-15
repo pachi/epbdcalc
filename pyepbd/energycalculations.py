@@ -339,12 +339,12 @@ def gridsavings_stepB(components, fp, k_exp):
     gridsavings = {'ren': k_exp * (to_nEPB['ren'] + to_grid['ren']), 'nren': k_exp * (to_nEPB['nren'] + to_grid['nren'])}
     return gridsavings
 
-def weighted_energy(data, fp, k_rdel, k_exp):
+def weighted_energy(carrierlist, fp, k_rdel, k_exp):
     """Total weighted energy (step A + B) = used energy (step A) - saved energy (step B)
 
     The energy saved to the grid due to exportation (step B) is substracted
     from the the energy balance in the asessment boundary AB (step A).
-    This is  computed for all energy carrier and all energy sources.
+    This is computed for all energy carrier and all energy sources.
 
     This function returns a data structure with keys 'ren' and 'nren'
     corresponding to the renewable and not renewable parts of the balance.
@@ -352,26 +352,27 @@ def weighted_energy(data, fp, k_rdel, k_exp):
     In the context of the CTE regulation weighted energy corresponds to
     primary energy.
 
-    data is a list of energy vectors:
+    carrierlist is a list of energy vectors:
 
     fp is a dictionary of weighting factors
     k_rdel is the redelivery energy factor [0, 1]
     k_exp is the exported energy factor [0, 1]
     """
-    balance = computebalance(data, k_rdel)
+    balance = computebalance(carrierlist, k_rdel)
     EPA = {'ren': 0.0, 'nren': 0.0}
     EPB = {'ren': 0.0, 'nren': 0.0}
 
     for carrier in balance:
-        fp_cr = [fpi for fpi in fp if fpi['vector'] == carrier]
+        cr_fp = [fpi for fpi in fp if fpi['vector'] == carrier]
         cr_balance_an = balance[carrier]['annual']
 
-        delivered_wenergy_stepA = delivered_weighted_energy_stepA(cr_balance_an, fp_cr)
-        exported_wenergy_stepA = exported_weighted_energy_stepA(cr_balance_an, fp_cr)
+        delivered_wenergy_stepA = delivered_weighted_energy_stepA(cr_balance_an, cr_fp)
+        exported_wenergy_stepA = exported_weighted_energy_stepA(cr_balance_an, cr_fp)
+        gsavings_stepB = gridsavings_stepB(cr_balance_an, cr_fp, k_exp)
+
         weighted_energy_stepA = { 'ren': delivered_wenergy_stepA['ren'] - exported_wenergy_stepA['ren'],
                                   'nren': delivered_wenergy_stepA['nren'] - exported_wenergy_stepA['nren'] }
 
-        gsavings_stepB = gridsavings_stepB(cr_balance_an, fp_cr, k_exp)
         weighted_energy_stepAB = { 'ren': weighted_energy_stepA['ren'] - gsavings_stepB['ren'],
                                    'nren': weighted_energy_stepA['nren'] - gsavings_stepB['nren'] }
 
