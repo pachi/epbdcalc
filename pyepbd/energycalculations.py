@@ -200,7 +200,7 @@ def components_an_forcarrier(components_t):
                 components_an[origin][use] = sumforuse
     return components_an
 
-def energycomponents(carrierlist, k_rdel):
+def computebalance(carrierlist, k_rdel):
     """Calculate timestep and annual energy composition by carrier
 
     carrierlist: list of energy components
@@ -358,20 +358,20 @@ def weighted_energy(data, fp, k_rdel, k_exp):
     k_rdel is the redelivery energy factor [0, 1]
     k_exp is the exported energy factor [0, 1]
     """
-    components = energycomponents(data, k_rdel)
+    balance = computebalance(data, k_rdel)
     EPA = {'ren': 0.0, 'nren': 0.0}
     EPB = {'ren': 0.0, 'nren': 0.0}
 
-    for carrier in components:
+    for carrier in balance:
         fp_cr = [fpi for fpi in fp if fpi['vector'] == carrier]
-        components_cr_an = components[carrier]['annual']
+        cr_balance_an = balance[carrier]['annual']
 
-        delivered_wenergy_stepA = delivered_weighted_energy_stepA(components_cr_an, fp_cr)
-        exported_wenergy_stepA = exported_weighted_energy_stepA(components_cr_an, fp_cr)
+        delivered_wenergy_stepA = delivered_weighted_energy_stepA(cr_balance_an, fp_cr)
+        exported_wenergy_stepA = exported_weighted_energy_stepA(cr_balance_an, fp_cr)
         weighted_energy_stepA = { 'ren': delivered_wenergy_stepA['ren'] - exported_wenergy_stepA['ren'],
                                   'nren': delivered_wenergy_stepA['nren'] - exported_wenergy_stepA['nren'] }
 
-        gsavings_stepB = gridsavings_stepB(components_cr_an, fp_cr, k_exp)
+        gsavings_stepB = gridsavings_stepB(cr_balance_an, fp_cr, k_exp)
         weighted_energy_stepAB = { 'ren': weighted_energy_stepA['ren'] - gsavings_stepB['ren'],
                                    'nren': weighted_energy_stepA['nren'] - gsavings_stepB['nren'] }
 
