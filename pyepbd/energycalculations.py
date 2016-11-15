@@ -65,6 +65,8 @@ from .utils import *
 # origin for produced energy must be either 'INSITU' or 'COGENERACION'
 VALIDORIGINS = ['INSITU', 'COGENERACION']
 
+############# ByCarrier timestep and annual computations ##############
+
 def balance_t_forcarrier(carrierdata, k_rdel):
     """Calculate timestep energy balance for carrier data
 
@@ -200,60 +202,7 @@ def balance_an_forcarrier(balance_t):
                 balance_an[origin][use] = sumforuse
     return balance_an
 
-def computebalance(carrierlist, k_rdel):
-    """Calculate timestep and annual energy balance by carrier
-
-    carrierlist: list of energy carrier data
-
-        [ {'carrier': carrier1, 'ctype': ctype1, 'originoruse': originoruse1, 'values': values1},
-          {'carrier': carrier2, 'ctype': ctype2, 'originoruse': originoruse2, 'values': values2},
-          ... ]
-
-        where:
-
-            * carrier is an energy carrier
-            * ctype is either 'PRODUCCION' or 'CONSUMO' por produced or used energy
-            * originoruse defines:
-              - the energy origin for produced energy (INSITU or COGENERACION)
-              - the energy end use (EPB or NEPB) for delivered energy
-            * values is a list of energy values, one for each timestep
-            * comment is a comment string for the vector
-
-    k_rdel: redelivery factor [0, 1]
-
-
-    Returns:
-        balance[carrier] = { 'timestep': [vt1, ..., vtn]
-                             'annual': vannual }
-        where timestep and annual are the timestep and annual
-        balanced values for carrier.
-    """
-    # Add all values of vectors with the same carrier ctype and originoruse
-    # datadict[carrier][ctype][originoruse] -> values as np.array with length=numsteps
-    datadict = {}
-    numsteps = max(len(datum['values']) for datum in carrierlist)
-    for datum in carrierlist:
-        carrier = datum['carrier']
-        ctype = datum['ctype']
-        originoruse = datum['originoruse']
-        values = datum['values']
-        if carrier not in datadict:
-            datadict[carrier] = {'CONSUMO': {'EPB': [0.0] * numsteps,
-                                             'NEPB': [0.0] * numsteps},
-                                 'PRODUCCION': {'INSITU': [0.0] * numsteps,
-                                                'COGENERACION': [0.0] * numsteps}}
-        datadict[carrier][ctype][originoruse] = vecvecsum(datadict[carrier][ctype][originoruse], values)
-
-    # Compute timestep and annual balance
-    balance = {}
-    for carrier in datadict:
-        bal_t = balance_t_forcarrier(datadict[carrier], k_rdel)
-        bal_an = balance_an_forcarrier(bal_t)
-        balance[carrier] = {'timestep': bal_t,
-                            'annual': bal_an}
-    return balance
-
-############### Step A and B computations ####################
+############### Step A and B partial computations ####################
 
 def delivered_weighted_energy_stepA(cr_balance_an, fp):
     """Total delivered (or produced) weighted energy entering the assessment boundary in step A
@@ -339,7 +288,62 @@ def gridsavings_stepB(cr_balance_an, fp, k_exp):
     gridsavings = {'ren': k_exp * (to_nEPB['ren'] + to_grid['ren']), 'nren': k_exp * (to_nEPB['nren'] + to_grid['nren'])}
     return gridsavings
 
-def weighted_energy(carrierlist, fp, k_rdel, k_exp):
+############### Global functions ####################
+
+def compute_balance(carrierlist, k_rdel):
+    """Calculate timestep and annual energy balance by carrier
+
+    carrierlist: list of energy carrier data
+
+        [ {'carrier': carrier1, 'ctype': ctype1, 'originoruse': originoruse1, 'values': values1},
+          {'carrier': carrier2, 'ctype': ctype2, 'originoruse': originoruse2, 'values': values2},
+          ... ]
+
+        where:
+
+            * carrier is an energy carrier
+            * ctype is either 'PRODUCCION' or 'CONSUMO' por produced or used energy
+            * originoruse defines:
+              - the energy origin for produced energy (INSITU or COGENERACION)
+              - the energy end use (EPB or NEPB) for delivered energy
+            * values is a list of energy values, one for each timestep
+            * comment is a comment string for the vector
+
+    k_rdel: redelivery factor [0, 1]
+
+
+    Returns:
+        balance[carrier] = { 'timestep': [vt1, ..., vtn]
+                             'annual': vannual }
+        where timestep and annual are the timestep and annual
+        balanced values for carrier.
+    """
+    # Add all values of vectors with the same carrier ctype and originoruse
+    # datadict[carrier][ctype][originoruse] -> values as np.array with length=numsteps
+    datadict = {}
+    numsteps = max(len(datum['values']) for datum in carrierlist)
+    for datum in carrierlist:
+        carrier = datum['carrier']
+        ctype = datum['ctype']
+        originoruse = datum['originoruse']
+        values = datum['values']
+        if carrier not in datadict:
+            datadict[carrier] = {'CONSUMO': {'EPB': [0.0] * numsteps,
+                                             'NEPB': [0.0] * numsteps},
+                                 'PRODUCCION': {'INSITU': [0.0] * numsteps,
+                                                'COGENERACION': [0.0] * numsteps}}
+        datadict[carrier][ctype][originoruse] = vecvecsum(datadict[carrier][ctype][originoruse], values)
+
+    # Compute timestep and annual balance
+    balance = {}
+    for carrier in datadict:
+        bal_t = balance_t_forcarrier(datadict[carrier], k_rdel)
+        bal_an = balance_an_forcarrier(bal_t)
+        balance[carrier] = {'timestep': bal_t,
+                            'annual': bal_an}
+    return balance
+
+def weighted_energy(balance, fp, k_exp):
     """Total weighted energy (step A + B) = used energy (step A) - saved energy (step B)
 
     The energy saved to the grid due to exportation (step B) is substracted
@@ -352,13 +356,12 @@ def weighted_energy(carrierlist, fp, k_rdel, k_exp):
     In the context of the CTE regulation weighted energy corresponds to
     primary energy.
 
-    carrierlist is a list of energy vectors:
+    balance is a dict with timestep and annual balance data as generated
+    by the compute_balance(carrierlist, k_rdel) function
 
     fp is a dictionary of weighting factors
-    k_rdel is the redelivery energy factor [0, 1]
     k_exp is the exported energy factor [0, 1]
     """
-    balance = computebalance(carrierlist, k_rdel)
     EPA = {'ren': 0.0, 'nren': 0.0}
     EPB = {'ren': 0.0, 'nren': 0.0}
 

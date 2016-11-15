@@ -27,7 +27,7 @@
 import argparse
 import sys
 from .settings import K_EXP, K_RDEL, FACTORESDEPASOOFICIALES
-from .energycalculations import weighted_energy
+from .energycalculations import compute_balance, weighted_energy
 from .inputoutput import readenergyfile, readfactors, ep2string
 
 def main():
@@ -90,7 +90,8 @@ def main():
     cadenasalida.append(u'Superficie de referencia: %.2f' % args.area)
 
     meta, data = readenergyfile(args.vecfile.name)
-    EP = weighted_energy(data, fP, k_rdel, k_exp)
+    balance = compute_balance(data, k_rdel)
+    EP = weighted_energy(balance, fP, k_exp)
 
     cadenasalida.append(ep2string(EP, args.area))
     cadenasalida = u'\n'.join(cadenasalida)

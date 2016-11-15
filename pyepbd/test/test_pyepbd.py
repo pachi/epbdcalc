@@ -27,7 +27,7 @@ import os, sys
 currpath = os.path.abspath(os.path.dirname(__file__))
 sys.path.append(os.path.join(currpath, '..'))
 
-from pyepbd import (weighted_energy,
+from pyepbd import (compute_balance, weighted_energy,
                     readenergyfile, saveenergyfile,
                     ep2string, readfactors)
 
@@ -48,11 +48,13 @@ def epfromfile(filename, krdel, kexp, fp):
     """Compute primary energy (weighted energy) from data in filename"""
     datafile = os.path.join(currpath, filename)
     meta, data = readenergyfile(datafile)
-    return weighted_energy(data, fp, krdel, kexp)
+    balance = compute_balance(data, krdel)
+    return weighted_energy(balance, fp, kexp)
 
 def epfromdata(data, krdel, kexp, fp):
     """Compute primary energy (weighted energy) from datalist"""
-    return weighted_energy(data, fp, krdel, kexp)
+    balance = compute_balance(data, krdel)
+    return weighted_energy(balance, fp, kexp)
 
 TESTFP = readfactors(os.path.join(currpath, '../examples/factores_paso_test.csv'))
 TESTFP2 = readfactors(os.path.join(currpath, '../examples/factores_paso_20140203.csv'))
@@ -139,7 +141,8 @@ def test_savefile():
     datafile = os.path.join(currpath, '../examples/ejemplo6K3.csv')
     outfile = os.path.join(currpath, '../examples/ejemplo6K3modif.csv')
     meta, data = readenergyfile(datafile)
-    EP = weighted_energy(data, TESTFP, TESTKRDEL, TESTKEXP)
+    balance = compute_balance(data, TESTKRDEL)
+    EP = weighted_energy(balance, TESTFP, TESTKEXP)
     meta[u"EP_nren"] = EP['EP']['nren']
     meta[u"EP_ren"] = EP['EP']['ren']
     meta[u"EPA_nren"] = EP['EPpasoA']['nren']

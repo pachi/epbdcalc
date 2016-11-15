@@ -22,7 +22,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-from .energycalculations import weighted_energy
+from .energycalculations import compute_balance, weighted_energy
 from .inputoutput import readenergyfile, saveenergyfile, readfactors, readfactorsdata
 from .inputoutput import ep2string, ep2dict
 from .settings import *
